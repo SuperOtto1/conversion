@@ -1,4 +1,3 @@
-// App.js
 import React from "react";
 import { BrowserRouter as Router, Route, Switch } from "react-router-dom";
 import Layout from "./Layout";
@@ -9,7 +8,7 @@ import "./App.css";
 
 const App = () => {
   return (
-    <Router>
+    <Router basename="/conversion">
       <Layout>
         <Switch>
           <Route path="/" exact component={Home} />

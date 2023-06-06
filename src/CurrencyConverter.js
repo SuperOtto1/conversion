@@ -1,4 +1,3 @@
-// CurrencyConverter.js
 import React from "react";
 import currencies from "./utils/currencies";
 import { checkStatus, json } from "./utils/fetchUtils";
