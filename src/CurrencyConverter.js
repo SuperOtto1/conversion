@@ -1,4 +1,5 @@
 import React from "react";
+import Chart from "chart.js";
 import currencies from "./utils/currencies";
 import { checkStatus, json } from "./utils/fetchUtils";
 
@@ -8,8 +9,6 @@ class CurrencyConverter extends React.Component {
 
     const params = new URLSearchParams(props.location.search);
 
-    console.log(params.base);
-
     this.state = {
       rate: 0,
       baseAcronym: params.get("base") || "USD",
@@ -18,11 +17,14 @@ class CurrencyConverter extends React.Component {
       quoteValue: 0,
       loading: false,
     };
+
+    this.chartRef = React.createRef();
   }
 
   componentDidMount() {
     const { baseAcronym, quoteAcronym } = this.state;
     this.getRate(baseAcronym, quoteAcronym);
+    this.getHistoricalRates(baseAcronym, quoteAcronym);
   }
 
   getRate = (base, quote) => {
@@ -47,6 +49,56 @@ class CurrencyConverter extends React.Component {
       .catch((error) => console.error(error.message));
   };
 
+  getHistoricalRates = (base, quote) => {
+    const endDate = new Date().toISOString().split("T")[0];
+    const startDate = new Date(new Date().getTime() - 30 * 24 * 60 * 60 * 1000)
+      .toISOString()
+      .split("T")[0];
+
+    fetch(
+      `https://api.frankfurter.app/${startDate}..${endDate}?from=${base}&to=${quote}`
+    )
+      .then(checkStatus)
+      .then(json)
+      .then((data) => {
+        if (data.error) {
+          throw new Error(data.error);
+        }
+
+        const chartLabels = Object.keys(data.rates);
+        const chartData = Object.values(data.rates).map((rate) => rate[quote]);
+        const chartLabel = `${base}/${quote}`;
+        this.buildChart(chartLabels, chartData, chartLabel);
+      })
+      .catch((error) => console.error(error.message));
+  };
+
+  buildChart = (labels, data, label) => {
+    const chartRef = this.chartRef.current.getContext("2d");
+
+    if (typeof this.chart !== "undefined") {
+      this.chart.destroy();
+    }
+
+    this.chart = new Chart(this.chartRef.current.getContext("2d"), {
+      type: "line",
+      data: {
+        labels,
+        datasets: [
+          {
+            label: label,
+            data,
+            fill: false,
+            tension: 0,
+          },
+        ],
+      },
+      options: {
+        responsive: true,
+      },
+    });
+  };
+
   toBase(amount, rate) {
     return amount * (1 / rate);
   }
@@ -67,6 +119,7 @@ class CurrencyConverter extends React.Component {
     const baseAcronym = event.target.value;
     this.setState({ baseAcronym });
     this.getRate(baseAcronym, this.state.quoteAcronym);
+    this.getHistoricalRates(baseAcronym, this.state.quoteAcronym);
   };
 
   changeBaseValue = (event) => {
@@ -85,6 +138,7 @@ class CurrencyConverter extends React.Component {
     const quoteAcronym = event.target.value;
     this.setState({ quoteAcronym });
     this.getRate(this.state.baseAcronym, quoteAcronym);
+    this.getHistoricalRates(this.state.baseAcronym, quoteAcronym);
   };
 
   changeQuoteValue = (event) => {
@@ -118,7 +172,7 @@ class CurrencyConverter extends React.Component {
             {currencies[quoteAcronym].name}
           </h4>
         </div>
-        <form className="form-row p-3 bg-light justify-content-center">
+        <form className="form-row p-3 mb-4 bg-light justify-content-center">
           <div className="form-group col-md-5 mb-0">
             <select
               value={baseAcronym}
@@ -177,6 +231,7 @@ class CurrencyConverter extends React.Component {
             </small>
           </div>
         </form>
+        <canvas ref={this.chartRef} />
       </React.Fragment>
     );
   }
